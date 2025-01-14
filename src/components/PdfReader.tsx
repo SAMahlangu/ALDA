@@ -1,60 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { FileText, Volume2, VolumeX, Loader } from 'lucide-react';
-import Select from 'react-select';
+import { FileText, Volume2, VolumeX } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { TranslationServiceClient } from '@google-cloud/translate';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-interface Language {
-  value: string;
-  label: string;
-}
-
-const languages: Language[] = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-];
-
 function PdfReader() {
   const [pdfText, setPdfText] = useState('');
-  const [translatedText, setTranslatedText] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>(languages[0]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const translateText = async (text: string, targetLanguage: string) => {
-    setIsTranslating(true);
-    try {
-      // Replace 'YOUR_API_KEY' with your actual Google Cloud API key
-      const apiKey = 'AIzaSyCtANaTWbX10K97uYp1JBC_BpeTQA9D4Qs';
-      const response = await fetch(
-        `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            q: text,
-            target: targetLanguage,
-          }),
-        }
-      );
-      
-      const data = await response.json();
-      if (data.data && data.data.translations) {
-        setTranslatedText(data.data.translations[0].translatedText);
-      }
-    } catch (error) {
-      console.error('Translation error:', error);
-    } finally {
-      setIsTranslating(false);
-    }
-  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -74,24 +27,15 @@ function PdfReader() {
       }
 
       setPdfText(fullText);
-      if (selectedLanguage.value !== 'en') {
-        translateText(fullText, selectedLanguage.value);
-      } else {
-        setTranslatedText('');
-      }
     };
     reader.readAsArrayBuffer(file);
   };
 
   const speak = () => {
     if ('speechSynthesis' in window) {
-      const textToSpeak = translatedText || pdfText;
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = selectedLanguage.value === 'en' ? 'en-US' : 
-                      selectedLanguage.value === 'es' ? 'es-ES' :
-                      selectedLanguage.value === 'fr' ? 'fr-FR' :
-                      selectedLanguage.value === 'de' ? 'de-DE' : 'en-US';
-      
+      const utterance = new SpeechSynthesisUtterance(pdfText);
+      utterance.lang = 'fr-FR'; // Only French
+
       utterance.onend = () => {
         setIsSpeaking(false);
       };
@@ -106,32 +50,9 @@ function PdfReader() {
     }
   };
 
-  const handleLanguageChange = (lang: Language | null) => {
-    if (lang) {
-      setSelectedLanguage(lang);
-      if (pdfText && lang.value !== 'en') {
-        translateText(pdfText, lang.value);
-      } else {
-        setTranslatedText('');
-      }
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">PDF Reader with Translation</h1>
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Target Language
-        </label>
-        <Select
-          options={languages}
-          value={selectedLanguage}
-          onChange={handleLanguageChange}
-          className="w-full"
-        />
-      </div>
+      <h1 className="text-3xl font-bold mb-6">Lecteur PDF en Français</h1>
 
       <div className="mb-6">
         <input
@@ -146,11 +67,11 @@ function PdfReader() {
           className="flex items-center px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
         >
           <FileText className="w-5 h-5 mr-2" />
-          Upload PDF
+          Télécharger le PDF
         </button>
       </div>
 
-      {(pdfText || translatedText) && (
+      {pdfText && (
         <>
           <div className="mb-6">
             <button
@@ -162,29 +83,21 @@ function PdfReader() {
               {isSpeaking ? (
                 <>
                   <VolumeX className="w-5 h-5 mr-2" />
-                  Stop Reading
+                  Arrêter la lecture
                 </>
               ) : (
                 <>
                   <Volume2 className="w-5 h-5 mr-2" />
-                  Read PDF
+                  Lire le PDF
                 </>
               )}
             </button>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-4">
-              {selectedLanguage.value === 'en' ? 'Original Content:' : 'Translated Content:'}
-              {isTranslating && (
-                <span className="ml-2 inline-flex items-center text-blue-500">
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  Translating...
-                </span>
-              )}
-            </h2>
+            <h2 className="text-lg font-semibold mb-4">Contenu du PDF :</h2>
             <div className="max-h-[500px] overflow-y-auto p-4 bg-gray-50 rounded border">
-              {selectedLanguage.value === 'en' ? pdfText : translatedText || pdfText}
+              {pdfText}
             </div>
           </div>
         </>
